@@ -4,7 +4,6 @@ from openai import OpenAI
 import time
 import logging
 import os
-from openai.error import RateLimitError
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -38,7 +37,7 @@ st.markdown(
 )
 
 # Title and Setup
-st.title('Bulk ChatGPT Mini')
+st.title('Bulk ChatGPT v3')
 
 # Subtitle
 st.markdown(
@@ -90,28 +89,22 @@ if uploaded_file and api_key:
     if st.button("Generate Responses"):
         client = OpenAI(api_key=api_key)
 
-        # Function to generate responses using the OpenAI client with retry logic
-        def generate_response_with_retry(row, retries=3, delay=1):
-            for attempt in range(retries):
-                try:
-                    formatted_user_prompt = user_prompt_template.format(**{var: row[col] for col, var in column_to_variable.items()})
-                    formatted_system_prompt = system_prompt.format(**{var: row[col] for col, var in column_to_variable.items()})
-                    response = client.chat.completions.create(
-                        messages=[
-                            {"role": "system", "content": formatted_system_prompt},
-                            {"role": "user", "content": formatted_user_prompt}
-                        ],
-                        model="gpt-4o-mini"
-                    )
-                    return response.choices[0].message.content.strip()
-                except RateLimitError:
-                    logging.warning(f"Rate limit exceeded. Retrying in {delay} seconds...")
-                    time.sleep(delay)
-                    delay *= 2  # Exponential backoff
-                except Exception as e:
-                    logging.error(f"Error processing row: {e}")
-                    return None
-            return None  # If all retries fail
+        # Function to generate responses using the OpenAI client
+        def generate_response(row):
+            try:
+                formatted_user_prompt = user_prompt_template.format(**{var: row[col] for col, var in column_to_variable.items()})
+                formatted_system_prompt = system_prompt.format(**{var: row[col] for col, var in column_to_variable.items()})
+                response = client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": formatted_system_prompt},
+                        {"role": "user", "content": formatted_user_prompt}
+                    ],
+                    model="gpt-4o-mini"
+                )
+                return response.choices[0].message.content.strip()
+            except Exception as e:
+                logging.error(f"Error processing row: {e}")
+                return None
 
         # Batch processing
         batch_size = 10  # Adjust the batch size as needed
@@ -126,9 +119,9 @@ if uploaded_file and api_key:
                 if index in processed_indices:
                     continue  # Skip already processed rows
 
-                response = generate_response_with_retry(row)
+                response = generate_response(row)
                 if response:
-                    response_data = [row[col] for col in columns] + [response]  # Appends response to data
+                    response_data = [row[col] for col in columns] + [response]
                     all_responses.append(response_data)
 
                 # Save intermediate results to CSV every few rows (e.g., every 10 rows)
