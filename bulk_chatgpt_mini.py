@@ -38,7 +38,7 @@ st.markdown(
 )
 
 # Title and Setup
-st.title('Bulk ChatGPT v3')
+st.title('Bulk ChatGPT Mini')
 
 # Subtitle
 st.markdown(
